@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Drawer } from "vaul";
 import { useReportStore } from "@/store/reportStore";
 import { reverseGeocode } from "@/lib/nominatim";
 import { Button } from "@/components/ui/button";
 import { SEVERITY_COLORS, type Severity } from "@/types/report";
-import { MapPin, Navigation, Camera, Send, X, Loader2 } from "lucide-react";
+import { MapPin, Navigation, Camera, Send, X, Loader2, CheckCircle2 } from "lucide-react";
 import imageCompression from "browser-image-compression";
 
 interface ReportFormProps {
@@ -16,12 +17,13 @@ interface ReportFormProps {
   onRequestPin: () => void;
 }
 
-export function ReportForm({
-  open,
-  onOpenChange,
-  pinLocation,
-  onRequestPin,
-}: ReportFormProps) {
+const severityConfig = {
+  low: { label: "Low", description: "Minor litter" },
+  medium: { label: "Medium", description: "Needs attention" },
+  high: { label: "High", description: "Urgent!" },
+};
+
+export function ReportForm({ open, onOpenChange, pinLocation, onRequestPin }: ReportFormProps) {
   const [severity, setSeverity] = useState<Severity>("medium");
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -33,7 +35,7 @@ export function ReportForm({
 
   const addReport = useReportStore((s) => s.addReport);
 
-  // Sync pin location from parent when it changes
+  // Sync pin from parent
   useEffect(() => {
     if (!pinLocation) return;
     setLocation(pinLocation);
@@ -45,6 +47,7 @@ export function ReportForm({
 
   const handleGPS = async () => {
     setGeoLoading(true);
+    const loadingToast = toast.loading("Getting your location...");
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
         navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -52,14 +55,16 @@ export function ReportForm({
           timeout: 10000,
         })
       );
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
+      const { latitude: lat, longitude: lng } = pos.coords;
       setLocation({ lat, lng });
       setAddress(null);
+      toast.dismiss(loadingToast);
+      toast.success("Location set!");
       const addr = await reverseGeocode(lat, lng);
       if (addr) setAddress(addr);
     } catch {
-      alert("Could not get your location. Please use the map to drop a pin.");
+      toast.dismiss(loadingToast);
+      toast.error("Location unavailable", { description: "Use the map pin instead." });
     } finally {
       setGeoLoading(false);
     }
@@ -69,16 +74,12 @@ export function ReportForm({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const compressed = await imageCompression(file, {
-        maxSizeMB: 0.5,
-        maxWidthOrHeight: 1024,
-      });
+      const compressed = await imageCompression(file, { maxSizeMB: 0.5, maxWidthOrHeight: 1024 });
       setPhotoFile(compressed);
       const reader = new FileReader();
       reader.onload = () => setPhotoPreview(reader.result as string);
       reader.readAsDataURL(compressed);
     } catch {
-      // Compression failed, use original
       setPhotoFile(file);
       const reader = new FileReader();
       reader.onload = () => setPhotoPreview(reader.result as string);
@@ -88,7 +89,7 @@ export function ReportForm({
 
   const handleSubmit = async () => {
     if (!location) {
-      alert("Please set a location first.");
+      toast.error("Location required", { description: "Use GPS or drop a pin on the map." });
       return;
     }
     setSubmitting(true);
@@ -102,6 +103,7 @@ export function ReportForm({
         address: address ?? undefined,
         photoFile: photoFile ?? undefined,
       });
+      toast.success("Report submitted!", { description: "It's now visible on the map." });
       // Reset
       setDescription("");
       setSeverity("medium");
@@ -110,180 +112,169 @@ export function ReportForm({
       setLocation(null);
       setAddress(null);
       onOpenChange(false);
-    } catch (err) {
-      console.error("Failed to submit report:", err);
-      alert("Failed to submit. Check your connection and try again.");
+    } catch {
+      toast.error("Submission failed", { description: "Check your connection and try again." });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const severityOptions: Severity[] = ["low", "medium", "high"];
-
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange}>
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 bg-black/40 z-40" />
-        <Drawer.Content className="bg-white flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 max-h-[88vh] z-50 shadow-2xl">
-          {/* Handle */}
-          <div className="pt-3 pb-1 flex justify-center shrink-0">
-            <div className="w-10 h-1 rounded-full bg-gray-300" />
+        <Drawer.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-40" />
+        <Drawer.Content className="bg-white flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 max-h-[90vh] z-50 shadow-2xl">
+
+          {/* Drag handle */}
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="w-8 h-1 rounded-full bg-slate-300" />
           </div>
 
           {/* Header */}
-          <div className="px-4 py-2 flex items-center justify-between shrink-0 border-b">
-            <Drawer.Title className="text-base font-semibold">
-              Report Waste Spot
-            </Drawer.Title>
-            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-              <X className="w-4 h-4" />
-            </Button>
+          <div className="px-5 py-3 flex items-center justify-between border-b border-slate-100 shrink-0">
+            <div>
+              <Drawer.Title className="text-base font-bold text-slate-900">
+                Report Waste Spot
+              </Drawer.Title>
+              <p className="text-xs text-slate-400 mt-0.5">Help keep the community clean</p>
+            </div>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+            >
+              <X className="w-4 h-4 text-slate-500" />
+            </button>
           </div>
 
-          {/* Scrollable content */}
-          <div className="p-4 overflow-y-auto flex flex-col gap-4 pb-8">
+          {/* Form body */}
+          <div className="p-5 overflow-y-auto flex flex-col gap-5 pb-10">
 
             {/* Location */}
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Location <span className="text-red-500">*</span>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                Location <span className="text-red-500 normal-case tracking-normal">required</span>
               </label>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
+                <button
+                  type="button"
                   onClick={handleGPS}
                   disabled={geoLoading}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-60"
                 >
-                  {geoLoading ? (
-                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  ) : (
-                    <Navigation className="w-4 h-4 mr-1" />
-                  )}
-                  Use My Location
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => {
-                    onRequestPin();
-                    onOpenChange(false);
-                  }}
+                  {geoLoading
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Navigation className="w-4 h-4 text-blue-500" />}
+                  My Location
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { onRequestPin(); onOpenChange(false); }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 active:scale-95 transition-all"
                 >
-                  <MapPin className="w-4 h-4 mr-1" />
-                  Drop Pin on Map
-                </Button>
+                  <MapPin className="w-4 h-4 text-green-500" />
+                  Drop Pin
+                </button>
               </div>
-              {location ? (
-                <div className="mt-2 text-xs bg-green-50 border border-green-200 rounded-md p-2">
-                  <span className="font-mono text-green-700">
-                    {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
-                  </span>
-                  {address && (
-                    <p className="mt-1 text-gray-600 leading-tight line-clamp-2">
-                      {address}
+
+              {location && (
+                <div className="mt-2 flex items-start gap-2 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-mono text-green-700">
+                      {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
                     </p>
-                  )}
+                    {address && (
+                      <p className="text-xs text-slate-600 mt-0.5 leading-tight line-clamp-2">
+                        {address}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <p className="mt-1.5 text-xs text-gray-400">
-                  Use GPS or tap "Drop Pin on Map" to set location
-                </p>
               )}
             </div>
 
             {/* Severity */}
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
                 Severity
               </label>
               <div className="flex gap-2">
-                {severityOptions.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setSeverity(s)}
-                    className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-medium capitalize transition-all border-2 ${
-                      severity === s
-                        ? "text-white border-transparent shadow-md"
-                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                    }`}
-                    style={
-                      severity === s
-                        ? { backgroundColor: SEVERITY_COLORS[s], borderColor: SEVERITY_COLORS[s] }
-                        : undefined
-                    }
-                  >
-                    {s}
-                  </button>
-                ))}
+                {(Object.keys(severityConfig) as Severity[]).map((s) => {
+                  const active = severity === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSeverity(s)}
+                      className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold capitalize transition-all active:scale-95 ${
+                        active ? "text-white border-transparent shadow-md" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                      }`}
+                      style={active ? { backgroundColor: SEVERITY_COLORS[s], borderColor: SEVERITY_COLORS[s] } : undefined}
+                    >
+                      {severityConfig[s].label}
+                      <span className={`block text-[10px] font-normal mt-0.5 ${active ? "text-white/80" : "text-slate-400"}`}>
+                        {severityConfig[s].description}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Description */}
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Description <span className="text-gray-400 font-normal">(optional)</span>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                Description <span className="text-slate-400 normal-case tracking-normal font-normal">(optional)</span>
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe the waste spot..."
-                className="w-full p-2.5 border rounded-lg text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="What do you see? e.g. overflowing bin, plastic bags..."
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-400"
               />
             </div>
 
             {/* Photo */}
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Photo <span className="text-gray-400 font-normal">(optional)</span>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                Photo <span className="text-slate-400 normal-case tracking-normal font-normal">(optional)</span>
               </label>
               {photoPreview ? (
-                <div className="relative rounded-lg overflow-hidden">
-                  <img
-                    src={photoPreview}
-                    alt="Preview"
-                    className="w-full h-40 object-cover"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-2 right-2 h-7 w-7 p-0"
+                <div className="relative rounded-xl overflow-hidden">
+                  <img src={photoPreview} alt="Preview" className="w-full h-44 object-cover" />
+                  <button
+                    type="button"
                     onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                    className="absolute top-2 right-2 w-7 h-7 bg-black/60 rounded-full flex items-center justify-center hover:bg-black/80 transition-colors"
                   >
-                    <X className="w-3 h-3" />
-                  </Button>
+                    <X className="w-3.5 h-3.5 text-white" />
+                  </button>
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                  <Camera className="w-6 h-6 text-gray-400" />
-                  <span className="text-xs text-gray-500 mt-1">Tap to add photo</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={handlePhoto}
-                  />
+                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all">
+                  <Camera className="w-6 h-6 text-slate-300" />
+                  <span className="text-sm text-slate-400 mt-1.5 font-medium">Tap to add a photo</span>
+                  <span className="text-xs text-slate-300 mt-0.5">Auto-compressed for fast upload</span>
+                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
                 </label>
               )}
             </div>
 
             {/* Submit */}
-            <Button
-              className="w-full bg-green-600 hover:bg-green-700 text-white h-11"
+            <button
+              type="button"
               onClick={handleSubmit}
               disabled={submitting || !location}
+              className={`w-full h-12 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+                !location || submitting
+                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : "bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-200"
+              }`}
             >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4 mr-2" />
-              )}
-              {submitting ? "Submitting..." : "Submit Report"}
-            </Button>
+              {submitting
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</>
+                : <><Send className="w-4 h-4" /> Submit Report</>}
+            </button>
           </div>
         </Drawer.Content>
       </Drawer.Portal>

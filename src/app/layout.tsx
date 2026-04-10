@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CleanSweep - Report Waste, Clean Communities",
+  title: "CleanSweep — Report Waste, Clean Communities",
   description:
     "Real-time waste spot reporting and volunteer cleanup coordination tool",
 };
@@ -34,7 +35,15 @@ export default function RootLayout({
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
         />
       </head>
-      <body className="h-full flex flex-col">{children}</body>
+      <body className="h-full flex flex-col bg-slate-50">
+        {children}
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: { fontFamily: "var(--font-geist-sans)" },
+          }}
+        />
+      </body>
     </html>
   );
 }
