@@ -139,17 +139,22 @@
   margin: 0;
 }
 
-/* Pulse animation for high severity markers */
-@keyframes pulse-ring {
+/* Pulse ring animation for high severity markers (applied to a div, not SVG) */
+@keyframes pulse-expand {
   0% {
-    transform: scale(1);
-    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.6;
+  }
+  80% {
+    transform: translate(-50%, -50%) scale(3);
+    opacity: 0;
   }
   100% {
-    transform: scale(2.5);
+    transform: translate(-50%, -50%) scale(3);
     opacity: 0;
   }
 }
-.pulse-marker {
-  animation: pulse-ring 1.5s ease-out infinite;
+.pulse-ring {
+  animation: pulse-expand 1.8s ease-out infinite;
+  pointer-events: none;
 }

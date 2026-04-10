@@ -1,20 +1,12 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Drawer } from "vaul";
 import { useReportStore } from "@/store/reportStore";
 import { reverseGeocode } from "@/lib/nominatim";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { SEVERITY_COLORS, type Severity } from "@/types/report";
-import {
-  MapPin,
-  Navigation,
-  Camera,
-  Send,
-  X,
-  Loader2,
-} from "lucide-react";
+import { MapPin, Navigation, Camera, Send, X, Loader2 } from "lucide-react";
 import imageCompression from "browser-image-compression";
 
 interface ReportFormProps {
@@ -37,32 +29,19 @@ export function ReportForm({
   const [address, setAddress] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
-    pinLocation
-  );
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const addReport = useReportStore((s) => s.addReport);
 
-  // Sync pinLocation from parent
-  const updateFromPin = useCallback(
-    async (lat: number, lng: number) => {
-      setLocation({ lat, lng });
-      setAddress(null);
-      const addr = await reverseGeocode(lat, lng);
+  // Sync pin location from parent when it changes
+  useEffect(() => {
+    if (!pinLocation) return;
+    setLocation(pinLocation);
+    setAddress(null);
+    reverseGeocode(pinLocation.lat, pinLocation.lng).then((addr) => {
       if (addr) setAddress(addr);
-    },
-    []
-  );
-
-  // When pinLocation changes from parent
-  if (
-    pinLocation &&
-    (!location ||
-      location.lat !== pinLocation.lat ||
-      location.lng !== pinLocation.lng)
-  ) {
-    updateFromPin(pinLocation.lat, pinLocation.lng);
-  }
+    });
+  }, [pinLocation]);
 
   const handleGPS = async () => {
     setGeoLoading(true);
@@ -76,6 +55,7 @@ export function ReportForm({
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
       setLocation({ lat, lng });
+      setAddress(null);
       const addr = await reverseGeocode(lat, lng);
       if (addr) setAddress(addr);
     } catch {
@@ -88,16 +68,22 @@ export function ReportForm({
   const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const compressed = await imageCompression(file, {
-      maxSizeMB: 0.5,
-      maxWidthOrHeight: 1024,
-    });
-
-    setPhotoFile(compressed);
-    const reader = new FileReader();
-    reader.onload = () => setPhotoPreview(reader.result as string);
-    reader.readAsDataURL(compressed);
+    try {
+      const compressed = await imageCompression(file, {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1024,
+      });
+      setPhotoFile(compressed);
+      const reader = new FileReader();
+      reader.onload = () => setPhotoPreview(reader.result as string);
+      reader.readAsDataURL(compressed);
+    } catch {
+      // Compression failed, use original
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onload = () => setPhotoPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async () => {
@@ -111,12 +97,12 @@ export function ReportForm({
         lat: location.lat,
         lng: location.lng,
         severity,
-        description: description || `${severity} severity waste spotted`,
+        description: description.trim() || `${severity.charAt(0).toUpperCase() + severity.slice(1)} severity waste spotted`,
         photoUrl: photoPreview ?? "",
         address: address ?? undefined,
         photoFile: photoFile ?? undefined,
       });
-      // Reset form
+      // Reset
       setDescription("");
       setSeverity("medium");
       setPhotoFile(null);
@@ -126,7 +112,7 @@ export function ReportForm({
       onOpenChange(false);
     } catch (err) {
       console.error("Failed to submit report:", err);
-      alert("Failed to submit. Please try again.");
+      alert("Failed to submit. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -138,26 +124,29 @@ export function ReportForm({
     <Drawer.Root open={open} onOpenChange={onOpenChange}>
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/40 z-40" />
-        <Drawer.Content className="bg-white flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 max-h-[85vh] z-50">
-          <div className="p-4 pb-0">
-            <div className="mx-auto w-12 h-1.5 rounded-full bg-gray-300 mb-4" />
-            <Drawer.Title className="text-lg font-semibold flex items-center justify-between">
-              Report Waste Spot
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onOpenChange(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </Drawer.Title>
+        <Drawer.Content className="bg-white flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 max-h-[88vh] z-50 shadow-2xl">
+          {/* Handle */}
+          <div className="pt-3 pb-1 flex justify-center shrink-0">
+            <div className="w-10 h-1 rounded-full bg-gray-300" />
           </div>
 
-          <div className="p-4 overflow-y-auto flex flex-col gap-4">
+          {/* Header */}
+          <div className="px-4 py-2 flex items-center justify-between shrink-0 border-b">
+            <Drawer.Title className="text-base font-semibold">
+              Report Waste Spot
+            </Drawer.Title>
+            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Scrollable content */}
+          <div className="p-4 overflow-y-auto flex flex-col gap-4 pb-8">
+
             {/* Location */}
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Location
+                Location <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-2">
                 <Button
@@ -187,17 +176,21 @@ export function ReportForm({
                   Drop Pin on Map
                 </Button>
               </div>
-              {location && (
-                <div className="mt-2 text-xs text-gray-500 bg-gray-50 rounded-md p-2">
-                  <span className="font-mono">
-                    {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+              {location ? (
+                <div className="mt-2 text-xs bg-green-50 border border-green-200 rounded-md p-2">
+                  <span className="font-mono text-green-700">
+                    {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
                   </span>
                   {address && (
-                    <p className="mt-1 text-gray-600 leading-tight">
+                    <p className="mt-1 text-gray-600 leading-tight line-clamp-2">
                       {address}
                     </p>
                   )}
                 </div>
+              ) : (
+                <p className="mt-1.5 text-xs text-gray-400">
+                  Use GPS or tap "Drop Pin on Map" to set location
+                </p>
               )}
             </div>
 
@@ -210,15 +203,16 @@ export function ReportForm({
                 {severityOptions.map((s) => (
                   <button
                     key={s}
+                    type="button"
                     onClick={() => setSeverity(s)}
-                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium capitalize transition-all ${
+                    className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-medium capitalize transition-all border-2 ${
                       severity === s
-                        ? "text-white shadow-md scale-105"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        ? "text-white border-transparent shadow-md"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
                     }`}
                     style={
                       severity === s
-                        ? { backgroundColor: SEVERITY_COLORS[s] }
+                        ? { backgroundColor: SEVERITY_COLORS[s], borderColor: SEVERITY_COLORS[s] }
                         : undefined
                     }
                   >
@@ -231,46 +225,41 @@ export function ReportForm({
             {/* Description */}
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Description (optional)
+                Description <span className="text-gray-400 font-normal">(optional)</span>
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe the waste spot..."
-                className="w-full p-2 border rounded-lg text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2.5 border rounded-lg text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             {/* Photo */}
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Photo
+                Photo <span className="text-gray-400 font-normal">(optional)</span>
               </label>
               {photoPreview ? (
-                <div className="relative">
+                <div className="relative rounded-lg overflow-hidden">
                   <img
                     src={photoPreview}
                     alt="Preview"
-                    className="w-full h-40 object-cover rounded-lg"
+                    className="w-full h-40 object-cover"
                   />
                   <Button
                     variant="destructive"
                     size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => {
-                      setPhotoFile(null);
-                      setPhotoPreview(null);
-                    }}
+                    className="absolute top-2 right-2 h-7 w-7 p-0"
+                    onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
                   >
                     <X className="w-3 h-3" />
                   </Button>
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
                   <Camera className="w-6 h-6 text-gray-400" />
-                  <span className="text-xs text-gray-500 mt-1">
-                    Tap to add photo
-                  </span>
+                  <span className="text-xs text-gray-500 mt-1">Tap to add photo</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -284,7 +273,7 @@ export function ReportForm({
 
             {/* Submit */}
             <Button
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              className="w-full bg-green-600 hover:bg-green-700 text-white h-11"
               onClick={handleSubmit}
               disabled={submitting || !location}
             >
