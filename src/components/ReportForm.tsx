@@ -50,12 +50,17 @@ export function ReportForm({ open, onOpenChange, pinLocation, onRequestPin, user
     setGeoLoading(true);
     const loadingToast = toast.loading("Getting your location...");
     try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-        })
-      );
+      const pos = await Promise.race([
+        new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+          })
+        ),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), 12000)
+        ),
+      ]);
       const { latitude: lat, longitude: lng } = pos.coords;
       setLocation({ lat, lng });
       setAddress(null);
@@ -63,9 +68,20 @@ export function ReportForm({ open, onOpenChange, pinLocation, onRequestPin, user
       toast.success("Location set!");
       const addr = await reverseGeocode(lat, lng);
       if (addr) setAddress(addr);
-    } catch {
+    } catch (err) {
       toast.dismiss(loadingToast);
-      toast.error("Location unavailable", { description: "Use the map pin instead." });
+      if (err instanceof Error && err.message === "timeout") {
+        toast.error("Location request timed out", { description: "Try again or use the map pin." });
+      } else {
+        const code = (err as GeolocationPositionError).code;
+        if (code === 1) {
+          toast.error("Location permission denied", { description: "Please enable location in settings and try again." });
+        } else if (code === 3) {
+          toast.error("Location request timed out", { description: "Try again or use the map pin." });
+        } else {
+          toast.error("Location unavailable", { description: "Use the map pin instead." });
+        }
+      }
     } finally {
       setGeoLoading(false);
     }
