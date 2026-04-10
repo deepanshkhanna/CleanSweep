@@ -45,7 +45,7 @@ export function Dashboard() {
     total: reports.length,
     reported: reports.filter((r) => r.status === "reported").length,
     in_progress: reports.filter((r) => r.status === "in_progress").length,
-    cleaned: reports.filter((r) => r.status === "cleaned").length,
+    cleaned: reports.filter((r) => r.status === "cleaned" || r.status === "verified").length,
   };
 
   return (

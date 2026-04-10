@@ -5,12 +5,16 @@ export interface Report {
   lat: number;
   lng: number;
   severity: "low" | "medium" | "high";
-  status: "reported" | "in_progress" | "cleaned";
+  status: "reported" | "in_progress" | "pending_verification" | "verified" | "cleaned";
   description: string;
   photoUrl: string;
   address?: string;
   createdAt: Timestamp;
   claimedBy?: string;
+  claimedByEmail?: string;
+  cleanupPhotoUrl?: string;
+  verifiedNote?: string;
+  verifiedAt?: Timestamp;
 }
 
 export type Severity = Report["severity"];
@@ -25,5 +29,7 @@ export const SEVERITY_COLORS: Record<Severity, string> = {
 export const STATUS_COLORS: Record<Status, string> = {
   reported: "#ef4444",
   in_progress: "#3b82f6",
+  pending_verification: "#f59e0b",
+  verified: "#10b981",
   cleaned: "#6b7280",
 };

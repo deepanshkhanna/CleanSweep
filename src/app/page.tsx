@@ -1,105 +1,94 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useReportStore } from "@/store/reportStore";
-import { MapView } from "@/components/MapView";
-import { Dashboard } from "@/components/Dashboard";
-import { ReportForm } from "@/components/ReportForm";
-import { MapLegend } from "@/components/MapLegend";
-import { Plus, Leaf } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Leaf, ShieldCheck, Users } from "lucide-react";
 
-export default function Home() {
-  const subscribe = useReportStore((s) => s.subscribe);
-  const loading = useReportStore((s) => s.loading);
-  const [formOpen, setFormOpen] = useState(false);
-  const [pinMode, setPinMode] = useState(false);
-  const [pinLocation, setPinLocation] = useState<{ lat: number; lng: number } | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = subscribe();
-    return () => unsubscribe();
-  }, [subscribe]);
-
-  const handleMapClick = useCallback(
-    (lat: number, lng: number) => {
-      if (pinMode) {
-        setPinLocation({ lat, lng });
-        setPinMode(false);
-        setFormOpen(true);
-      }
-    },
-    [pinMode]
-  );
-
-  const handleRequestPin = useCallback(() => setPinMode(true), []);
+export default function LandingPage() {
+  const router = useRouter();
 
   return (
-    <div className="h-full flex flex-col">
-
-      {/* ── Header ── */}
-      <header className="header-enter bg-white border-b border-slate-200 px-4 shrink-0 z-10" style={{ height: "56px" }}>
-        <div className="h-full flex items-center justify-between max-w-screen-xl mx-auto w-full">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center shadow-sm shadow-green-200">
-              <Leaf className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold text-slate-900 leading-none">CleanSweep</h1>
-              <p className="text-[10px] text-slate-400 mt-0.5 leading-none">Community cleanup tracker</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setFormOpen(true)}
-            className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-xs font-semibold px-3.5 py-2 rounded-full shadow-md shadow-green-200 transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Report Spot
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 flex flex-col">
+      {/* Nav */}
+      <header className="px-6 py-4 flex items-center gap-2.5">
+        <div className="w-9 h-9 bg-green-600 rounded-xl flex items-center justify-center shadow-md shadow-green-200">
+          <Leaf className="w-5 h-5 text-white" />
         </div>
+        <span className="text-lg font-bold text-slate-900">CleanSweep</span>
       </header>
 
-      {/* ── Dashboard strip ── */}
-      <div className="bg-white border-b border-slate-100 px-4 py-3 shrink-0">
-        <Dashboard />
-      </div>
+      {/* Hero */}
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
+        <div className="w-20 h-20 bg-green-600 rounded-3xl flex items-center justify-center shadow-xl shadow-green-200 mb-6">
+          <Leaf className="w-10 h-10 text-white" />
+        </div>
 
-      {/* ── Pin mode banner ── */}
-      {pinMode && (
-        <div className="pin-banner bg-blue-600 text-white text-xs font-semibold text-center py-2.5 px-4 shrink-0 flex items-center justify-center gap-2">
-          <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-          Tap anywhere on the map to drop a pin
+        <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 leading-tight mb-4">
+          Community Cleanup,{" "}
+          <span className="text-green-600">Made Simple</span>
+        </h1>
+        <p className="text-slate-500 text-base sm:text-lg max-w-md mb-10 leading-relaxed">
+          Report waste spots on the map, claim cleanups, submit proof, and get verified by
+          our admin — together we build a cleaner community.
+        </p>
+
+        {/* Portal cards */}
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+          {/* User card */}
           <button
-            className="ml-2 text-white/70 hover:text-white underline"
-            onClick={() => setPinMode(false)}
+            onClick={() => router.push("/user")}
+            className="flex-1 group bg-white border-2 border-slate-200 hover:border-green-400 rounded-2xl p-6 text-left shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
           >
-            Cancel
+            <div className="w-11 h-11 bg-green-100 group-hover:bg-green-600 rounded-xl flex items-center justify-center mb-3 transition-colors">
+              <Users className="w-5 h-5 text-green-600 group-hover:text-white transition-colors" />
+            </div>
+            <h2 className="text-base font-bold text-slate-900 mb-1">Volunteer Portal</h2>
+            <p className="text-xs text-slate-500 leading-snug">
+              Report waste, claim cleanups &amp; submit completion proof
+            </p>
+            <div className="mt-4 text-xs font-semibold text-green-600 group-hover:underline">
+              Enter as Volunteer →
+            </div>
+          </button>
+
+          {/* Admin card */}
+          <button
+            onClick={() => router.push("/admin")}
+            className="flex-1 group bg-white border-2 border-slate-200 hover:border-blue-400 rounded-2xl p-6 text-left shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+          >
+            <div className="w-11 h-11 bg-blue-100 group-hover:bg-blue-600 rounded-xl flex items-center justify-center mb-3 transition-colors">
+              <ShieldCheck className="w-5 h-5 text-blue-600 group-hover:text-white transition-colors" />
+            </div>
+            <h2 className="text-base font-bold text-slate-900 mb-1">Admin Portal</h2>
+            <p className="text-xs text-slate-500 leading-snug">
+              Review cleanup proofs &amp; officially verify completed spots
+            </p>
+            <div className="mt-4 text-xs font-semibold text-blue-600 group-hover:underline">
+              Enter as Admin →
+            </div>
           </button>
         </div>
-      )}
 
-      {/* ── Map ── */}
-      <div className="flex-1 relative map-enter">
-        {/* Loading overlay */}
-        {loading && (
-          <div className="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center z-10 gap-3">
-            <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center shadow-lg animate-pulse">
-              <Leaf className="w-5 h-5 text-white" />
+        {/* Steps */}
+        <div className="mt-14 flex flex-col sm:flex-row gap-6 text-center max-w-lg w-full">
+          {[
+            { step: "1", title: "Report", desc: "Drop a pin on a waste spot" },
+            { step: "2", title: "Claim & Clean", desc: "Volunteer claims it & cleans up" },
+            { step: "3", title: "Verify", desc: "Admin checks proof photo" },
+          ].map(({ step, title, desc }) => (
+            <div key={step} className="flex-1">
+              <div className="w-8 h-8 rounded-full bg-green-600 text-white text-sm font-bold flex items-center justify-center mx-auto mb-2">
+                {step}
+              </div>
+              <p className="text-sm font-semibold text-slate-800">{title}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{desc}</p>
             </div>
-            <p className="text-sm text-slate-400 font-medium">Loading map data…</p>
-          </div>
-        )}
+          ))}
+        </div>
+      </main>
 
-        <MapView onMapClick={handleMapClick} pinLocation={pinLocation} />
-        <MapLegend />
-      </div>
-
-      {/* ── Report form bottom sheet ── */}
-      <ReportForm
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        pinLocation={pinLocation}
-        onRequestPin={handleRequestPin}
-      />
+      <footer className="text-center py-5 text-xs text-slate-400">
+        CleanSweep — Built for GDG Hackathon 2026
+      </footer>
     </div>
   );
 }

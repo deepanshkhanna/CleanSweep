@@ -15,6 +15,7 @@ interface ReportFormProps {
   onOpenChange: (open: boolean) => void;
   pinLocation: { lat: number; lng: number } | null;
   onRequestPin: () => void;
+  userSession?: { name: string; email: string } | null;
 }
 
 const severityConfig = {
@@ -23,7 +24,7 @@ const severityConfig = {
   high: { label: "High", description: "Urgent!" },
 };
 
-export function ReportForm({ open, onOpenChange, pinLocation, onRequestPin }: ReportFormProps) {
+export function ReportForm({ open, onOpenChange, pinLocation, onRequestPin, userSession: _userSession }: ReportFormProps) {
   const [severity, setSeverity] = useState<Severity>("medium");
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);

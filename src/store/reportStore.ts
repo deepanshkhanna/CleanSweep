@@ -20,7 +20,9 @@ interface ReportStore {
   addReport: (
     data: Omit<Report, "id" | "createdAt" | "status"> & { photoFile?: File }
   ) => Promise<void>;
-  claimReport: (id: string, volunteerName: string) => Promise<void>;
+  claimReport: (id: string, volunteerName: string, volunteerEmail?: string) => Promise<void>;
+  submitCleanupProof: (id: string, photoFile: File) => Promise<void>;
+  verifyCleanup: (id: string, note: string) => Promise<void>;
   markCleaned: (id: string) => Promise<void>;
 }
 
@@ -66,18 +68,51 @@ export const useReportStore = create<ReportStore>((set, get) => ({
     });
   },
 
-  claimReport: async (id, volunteerName) => {
-    // Optimistic update
+  claimReport: async (id, volunteerName, volunteerEmail) => {
     set({
       reports: get().reports.map((r) =>
         r.id === id
-          ? { ...r, status: "in_progress" as const, claimedBy: volunteerName }
+          ? { ...r, status: "in_progress" as const, claimedBy: volunteerName, claimedByEmail: volunteerEmail }
           : r
       ),
     });
     await updateDoc(doc(db, "reports", id), {
       status: "in_progress",
       claimedBy: volunteerName,
+      ...(volunteerEmail ? { claimedByEmail: volunteerEmail } : {}),
+    });
+  },
+
+  submitCleanupProof: async (id, photoFile) => {
+    const storageRef = ref(storage, `cleanup_proofs/${Date.now()}_${photoFile.name}`);
+    const snap = await uploadBytes(storageRef, photoFile);
+    const cleanupPhotoUrl = await getDownloadURL(snap.ref);
+
+    set({
+      reports: get().reports.map((r) =>
+        r.id === id
+          ? { ...r, status: "pending_verification" as const, cleanupPhotoUrl }
+          : r
+      ),
+    });
+    await updateDoc(doc(db, "reports", id), {
+      status: "pending_verification",
+      cleanupPhotoUrl,
+    });
+  },
+
+  verifyCleanup: async (id, note) => {
+    set({
+      reports: get().reports.map((r) =>
+        r.id === id
+          ? { ...r, status: "verified" as const, verifiedNote: note, verifiedAt: Timestamp.now() }
+          : r
+      ),
+    });
+    await updateDoc(doc(db, "reports", id), {
+      status: "verified",
+      verifiedNote: note,
+      verifiedAt: Timestamp.now(),
     });
   },
 
