@@ -128,10 +128,10 @@ export default function UserPortal() {
   const handleRequestPin = useCallback(() => setPinMode(true), []);
 
   if (!sessionChecked) return null;
+  if (!session) return <LoginModal onLogin={handleLogin} />;
 
   return (
     <div className="h-full flex flex-col">
-      {!session && <LoginModal onLogin={handleLogin} />}
 
       {/* Header */}
       <header className="bg-white border-b border-slate-200 px-4 shrink-0 z-10" style={{ height: "56px" }}>
