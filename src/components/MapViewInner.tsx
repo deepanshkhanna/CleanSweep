@@ -60,8 +60,9 @@ function createReportIcon(report: Report): L.DivIcon {
 export default function MapViewInner({ onMapClick, pinLocation }: MapViewProps) {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const markersRef = useRef<L.Marker[]>([]);
-  const rootsRef = useRef<Root[]>([]);
+  // Keyed by report.id so we can diff rather than destroy-all
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const rootsRef = useRef<Map<string, Root>>(new Map());
   const pinMarkerRef = useRef<L.Marker | null>(null);
   const reports = useReportStore((s) => s.reports);
 
@@ -82,6 +83,10 @@ export default function MapViewInner({ onMapClick, pinLocation }: MapViewProps) 
 
     mapRef.current = map;
     return () => {
+      markersRef.current.forEach((m) => m.remove());
+      rootsRef.current.forEach((r) => r.unmount());
+      markersRef.current.clear();
+      rootsRef.current.clear();
       map.remove();
       mapRef.current = null;
     };
@@ -116,34 +121,49 @@ export default function MapViewInner({ onMapClick, pinLocation }: MapViewProps) 
     }
   }, [pinLocation]);
 
-  // Render report markers
+  // Render report markers — incremental diff to preserve popup React state
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Clean up old markers and React roots
-    markersRef.current.forEach((m) => m.remove());
-    rootsRef.current.forEach((r) => r.unmount());
-    markersRef.current = [];
-    rootsRef.current = [];
+    const currentIds = new Set(reports.map((r) => r.id));
 
+    // Remove markers that are no longer in reports
+    markersRef.current.forEach((marker, id) => {
+      if (!currentIds.has(id)) {
+        marker.remove();
+        rootsRef.current.get(id)?.unmount();
+        markersRef.current.delete(id);
+        rootsRef.current.delete(id);
+      }
+    });
+
+    // Add new markers or update existing ones
     reports.forEach((report) => {
-      const marker = L.marker([report.lat, report.lng], {
-        icon: createReportIcon(report),
-      }).addTo(map);
+      const existingMarker = markersRef.current.get(report.id);
+      if (existingMarker) {
+        // Update icon to reflect status/severity changes, re-render popup content
+        // without unmounting — this preserves ClaimButton's local state
+        existingMarker.setIcon(createReportIcon(report));
+        rootsRef.current.get(report.id)?.render(<MarkerPopup report={report} />);
+      } else {
+        const marker = L.marker([report.lat, report.lng], {
+          icon: createReportIcon(report),
+        }).addTo(map);
 
-      const container = document.createElement("div");
-      const root = createRoot(container);
-      root.render(<MarkerPopup report={report} />);
+        const container = document.createElement("div");
+        const root = createRoot(container);
+        root.render(<MarkerPopup report={report} />);
 
-      marker.bindPopup(container, {
-        maxWidth: 300,
-        minWidth: 250,
-        className: "custom-popup",
-      });
+        marker.bindPopup(container, {
+          maxWidth: 300,
+          minWidth: 250,
+          className: "custom-popup",
+        });
 
-      markersRef.current.push(marker);
-      rootsRef.current.push(root);
+        markersRef.current.set(report.id, marker);
+        rootsRef.current.set(report.id, root);
+      }
     });
   }, [reports]);
 
