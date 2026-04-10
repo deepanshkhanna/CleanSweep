@@ -221,3 +221,12 @@
   backdrop-filter: blur(4px);
   border-radius: 6px 0 0 0 !important;
 }
+
+/* Ensure report drawer stays above Leaflet layers. */
+[data-vaul-overlay] {
+  z-index: 1000 !important;
+}
+
+[data-vaul-drawer] {
+  z-index: 1001 !important;
+}

@@ -139,8 +139,8 @@ export function ReportForm({ open, onOpenChange, pinLocation, onRequestPin, user
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange} dismissible={false}>
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-40" />
-        <Drawer.Content className="bg-white flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 max-h-[90vh] z-50 shadow-2xl">
+        <Drawer.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-[1000]" />
+        <Drawer.Content className="bg-white flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 max-h-[90vh] z-[1001] shadow-2xl">
 
           {/* Drag handle */}
           <div className="flex justify-center pt-3 pb-1 shrink-0">
